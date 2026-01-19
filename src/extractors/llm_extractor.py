@@ -26,7 +26,7 @@ class LLMExtractor(BaseExtractor):
     def __init__(
         self,
         pdf_path: str | Path,
-        model: str = "gemini/gemini-1.5-flash",
+        model: str = "gemini/gemini-1.5-flash-latest",
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4000
@@ -35,7 +35,7 @@ class LLMExtractor(BaseExtractor):
         
         Args:
             pdf_path: Path to PDF file
-            model: Model identifier (e.g., 'gemini/gemini-1.5-flash', 'gpt-4', 'claude-3-sonnet')
+            model: Model identifier (e.g., 'gemini/gemini-1.5-flash-latest', 'gpt-4', 'claude-3-sonnet')
             api_key: API key for the provider (or None to use env vars)
             temperature: Sampling temperature (0.0 = deterministic)
             max_tokens: Maximum tokens in response
@@ -160,11 +160,30 @@ IMPORTANT: Return ONLY valid JSON with the extracted fields. No explanations or 
                 file=self.pdf_name
             )
             
+            # Prepare API key for Google Gemini
+            # LiteLLM expects format: gemini/<model-name>
+            # E.g. gemini/gemini-1.5-flash-latest
+            api_key = None
+            model_name = self.model
+            
+            if "gemini" in model_name.lower():
+                api_key = os.getenv("GEMINI_API_KEY")
+                # Ensure proper format: gemini/<model-name>
+                if "/" not in model_name:
+                    # User passed just "gemini-1.5-flash-latest", add prefix
+                    model_name = f"gemini/{model_name}"
+                elif not model_name.startswith("gemini/"):
+                    # User passed something like "google/gemini-1.5-flash-latest"
+                    # Extract model part and fix prefix
+                    model_part = model_name.split("/")[-1]
+                    model_name = f"gemini/{model_part}"
+            
             response = completion(
-                model=self.model,
+                model=model_name,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=self.temperature,
-                max_tokens=self.max_tokens
+                max_tokens=self.max_tokens,
+                api_key=api_key
             )
             
             # Extract response content
@@ -188,11 +207,13 @@ IMPORTANT: Return ONLY valid JSON with the extracted fields. No explanations or 
             return data
             
         except json.JSONDecodeError as e:
-            logger.error("Failed to parse LLM response as JSON", error=str(e))
-            return {}
+            error_msg = f"Failed to parse LLM response as JSON: {str(e)}"
+            logger.error("JSON parsing error", error=error_msg, response_preview=content[:200] if 'content' in locals() else 'N/A')
+            raise ValueError(error_msg)
         except Exception as e:
-            logger.error("LLM extraction failed", error=str(e))
-            return {}
+            error_msg = f"LLM extraction failed: {str(e)}"
+            logger.error("LLM extraction error", error=error_msg)
+            raise RuntimeError(error_msg)
     
     def extract(self) -> Dict:
         """Main extraction method (implements BaseExtractor interface).

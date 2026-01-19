@@ -1,0 +1,56 @@
+{
+  "summary": {
+    "total_files": 1,
+    "evaluated_files": 1,
+    "traditional": {
+      "success_count": 1,
+      "success_rate": 1.0,
+      "avg_completeness": 0.2,
+      "avg_processing_time": 0.041
+    },
+    "llm": {
+      "success_count": 1,
+      "success_rate": 1.0,
+      "avg_completeness": 0.0,
+      "avg_processing_time": 1.235,
+      "model": "gemini/gemini-1.5-flash-latest"
+    },
+    "comparison": {
+      "avg_improvement": 0,
+      "files_improved": 0,
+      "files_degraded": 0,
+      "files_same": 0
+    }
+  },
+  "results": [
+    {
+      "file": "DA00564_Invitation to Bid.pdf",
+      "document_type": "invitation_to_bid",
+      "status": "evaluated",
+      "traditional": {
+        "status": "success",
+        "data": {
+          "contract_number": null,
+          "wbs_element": "1BPR.10081",
+          "counties": "Bertie",
+          "description": null,
+          "date_available": null,
+          "completion_date": null,
+          "mbe_goal": null,
+          "wbe_goal": null,
+          "combined_goal": null,
+          "bid_opening_date": null
+        },
+        "processing_time": 0.041,
+        "completeness": 0.2
+      },
+      "llm": {
+        "status": "success",
+        "data": {},
+        "processing_time": 1.235,
+        "completeness": 0.0,
+        "model": "gemini/gemini-1.5-flash-latest"
+      }
+    }
+  ]
+}

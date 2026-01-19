@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import structlog
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -201,11 +205,17 @@ class ExtractionEvaluator:
                 "model": self.llm_model
             }
         except Exception as e:
-            logger.error("LLM extraction failed", error=str(e))
+            error_msg = str(e)
+            logger.error("LLM extraction failed", error=error_msg, file=pdf_path.name)
+            print(f"\n❌ ERROR in LLM extraction for {pdf_path.name}:")
+            print(f"   {error_msg}\n")
             result["llm"] = {
                 "status": "error",
-                "error": str(e),
-                "data": {}
+                "error": error_msg,
+                "data": {},
+                "processing_time": 0.0,
+                "completeness": 0.0,
+                "model": self.llm_model
             }
         
         # Compare results
@@ -379,6 +389,38 @@ def main():
     
     # Generate summary
     summary = evaluator.generate_summary()
+    
+    # Collect errors
+    llm_errors = [
+        {"file": r["file"], "error": r["llm"]["error"]}
+        for r in results
+        if r.get("llm", {}).get("status") == "error"
+    ]
+    trad_errors = [
+        {"file": r["file"], "error": r["traditional"]["error"]}
+        for r in results
+        if r.get("traditional", {}).get("status") == "error"
+    ]
+    
+    # Print errors first if any
+    if llm_errors or trad_errors:
+        print("\n" + "="*70)
+        print("⚠️  ERRORS ENCOUNTERED DURING EVALUATION")
+        print("="*70)
+        
+        if trad_errors:
+            print(f"\n📊 Traditional Extraction Errors ({len(trad_errors)}):")
+            for err in trad_errors:
+                print(f"  • {err['file']}")
+                print(f"    {err['error']}")
+        
+        if llm_errors:
+            print(f"\n🤖 LLM Extraction Errors ({len(llm_errors)}):")
+            for err in llm_errors:
+                print(f"  • {err['file']}")
+                print(f"    {err['error']}")
+        
+        print("="*70)
     
     # Print summary
     print("\n" + "="*70)
