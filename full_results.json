@@ -1,0 +1,42 @@
+{
+  "summary": {
+    "total_files": 100,
+    "successful": 96,
+    "failed": 0,
+    "skipped": 4,
+    "success_rate": "96.0%",
+    "by_document_type": {
+      "award_letter": {
+        "total": 28,
+        "successful": 28,
+        "failed": 0
+      },
+      "bid_tabs": {
+        "total": 27,
+        "successful": 27,
+        "failed": 0
+      },
+      "item_c_report": {
+        "total": 14,
+        "successful": 14,
+        "failed": 0
+      },
+      "invitation_to_bid": {
+        "total": 27,
+        "successful": 27,
+        "failed": 0
+      },
+      "bids_as_read": {
+        "total": 3,
+        "successful": 0,
+        "failed": 0
+      },
+      "bid_summary": {
+        "total": 1,
+        "successful": 0,
+        "failed": 0
+      }
+    }
+  },
+  "results": []
+}

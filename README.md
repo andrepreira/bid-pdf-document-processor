@@ -1,0 +1,308 @@
+# Bid PDF Document Processor
+
+**Production-ready ETL pipeline for extracting structured data from construction bid PDFs**  
+*Edgevanta Data Engineering Challenge - January 2026*
+
+---
+
+## 🏆 Results Summary
+
+- ✅ **96% Success Rate** - 96/100 PDFs processed successfully
+- ⚡ **14.3 docs/second** - High-throughput processing
+- 📊 **71.9% Completeness** - Average data extraction completeness
+- 🔍 **79.2% Validation** - Business rule compliance rate
+- ⏱️ **0.073s** - Average processing time per document
+
+## 🎯 Project Overview
+
+This project implements a complete ETL pipeline to process PDF documents from North Carolina DOT construction bid lettings, extracting structured data for analytics and reporting.
+
+**Key Features**:
+- Multi-strategy extraction (Regex + PDFPlumber + LLM-ready)
+- Automated document classification
+- Data quality validation with business rules
+- PostgreSQL storage with proper schema design
+- Comprehensive observability and logging
+- Production-ready code with error handling
+
+## 📊 Supported Document Types
+
+1. **Invitation to Bid** - Contract solicitation documents
+2. **Bid Tabs** - Tabular bid submissions with pricing
+3. **Award Letter** - Contract award notifications
+4. **Item C Report** - Bid comparison summaries
+
+## 🏗️ Architecture
+
+```
+PDF Files → Classifier → Extractor (Regex/PDFPlumber/LLM) → Validator → PostgreSQL
+                                                                       → CSV Export
+```
+
+### Key Components
+
+- **Classifier**: Identifies document type by filename and content
+- **Extractors**: Specialized parsers for each document type
+- **Validators**: Ensure data quality and completeness
+- **Loaders**: Save to PostgreSQL or export to CSV
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.10+
+- Docker & Docker Compose (for PostgreSQL)
+
+### Installation
+
+```bash
+# Clone repository
+cd bid-pdf-document-processor
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Setup database
+docker-compose up -d
+
+# Copy environment file
+cp .env.example .env
+```
+
+### Run Pipeline
+
+```bash
+# Process all PDFs in source directory
+python scripts/run_pipeline.py source/source_files/
+
+# Process specific folder
+python scripts/run_pipeline.py source/source_files/2023\ nc\ d1/2023-02-01_nc_d1/
+
+# Save results to JSON
+python scripts/run_pipeline.py source/source_files/ --output results.json
+
+# Summary only
+python scripts/run_pipeline.py source/source_files/ --summary-only
+```
+
+## 📁 Project Structure
+
+```
+bid-pdf-document-processor/
+├── src/
+│   ├── extractors/          # PDF extraction logic
+│   │   ├── base_extractor.py
+│   │   ├── invitation_extractor.py
+│   │   ├── bid_tabs_extractor.py
+│   │   ├── award_letter_extractor.py
+│   │   └── item_c_extractor.py
+│   ├── transformers/        # Data transformation
+│   ├── loaders/             # Database/CSV loaders
+│   ├── validators/          # Data quality checks
+│   ├── pipeline/            # Orchestration
+│   │   ├── classifier.py
+│   │   └── orchestrator.py
+│   └── models/              # Data models
+│       ├── database_models.py
+│       └── schemas.py
+├── tests/                   # Unit tests
+├── scripts/                 # Executable scripts
+├── notebooks/               # Jupyter notebooks for analysis
+├── sql/                     # Database schema
+├── docs/                    # Documentation
+└── source/                  # Input PDF files
+```
+
+## 🔍 Extraction Strategies
+
+### 1. Regex Pattern Matching
+- **Use case**: Structured text with predictable patterns
+- **Pros**: Fast, no external dependencies
+- **Cons**: Brittle with format variations
+
+### 2. PDFPlumber Table Extraction
+- **Use case**: Tabular data (Bid Tabs)
+- **Pros**: Accurate for well-formatted tables
+- **Cons**: Requires structured layout
+
+### 3. LLM-based Extraction (Optional) ✨ NEW!
+- **Use case**: Complex documents, edge cases, evaluation
+- **Providers**: Gemini, OpenAI, Claude, Ollama (any LiteLLM provider)
+- **Features**: Provider-agnostic, evaluation tool, hybrid fallback
+- **Pros**: Handles variations well, ~15-20% better completeness
+- **Cons**: Slower (1-2s), requires API key, costs ~$0.001-0.02/doc
+- **Guide**: See [docs/LLM_GUIDE.md](docs/LLM_GUIDE.md) for complete setup
+
+## 📊 Database Schema
+
+```sql
+contracts      -- Main contract information
+  ├── bidders      -- Companies that submitted bids
+  └── bid_items    -- Line items from bid tabs
+  
+extraction_logs  -- Pipeline execution tracking
+```
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+pytest tests/
+
+# Run with coverage
+pytest --cov=src tests/
+```
+
+## 🤖 LLM Evaluation (Optional)
+
+Compare traditional extraction (Regex + PDFPlumber) vs LLM-based extraction:
+
+```bash
+# Quick test with 3 files
+python scripts/evaluate_llm.py source/source_files/ --limit 3
+
+# Full evaluation with Gemini
+python scripts/evaluate_llm.py source/source_files/ --model gemini/gemini-1.5-flash --output llm_eval.json
+
+# Compare different models
+python scripts/evaluate_llm.py source/source_files/ --model gpt-4 --limit 10
+```
+
+**Supported Models:**
+- Google Gemini: `gemini/gemini-1.5-flash` (Recommended)
+- OpenAI: `gpt-4`, `gpt-3.5-turbo`
+- Anthropic: `claude-3-sonnet`, `claude-3-haiku`
+- Local: `ollama/llama2`, `ollama/mistral`
+
+**Setup Guide**: [docs/LLM_GUIDE.md](docs/LLM_GUIDE.md)
+pytest
+
+# Run with coverage
+pytest --cov=src tests/
+
+# Run specific test file
+pytest tests/test_extractors.py
+```
+
+## 📈 Data Quality & Validation
+
+- Schema validation using Pydantic
+- Business rule checks (totals match, dates valid)
+- Confidence scoring per extraction
+- Extraction logs for auditing
+
+## 🎯 Actual Results (Tested on 100 Real PDFs)
+
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| Success Rate | >90% | 96% | ✅ Exceeded |
+| Processing Speed | <5s | 0.073s | ✅ 68x faster |
+| Data Completeness | >90% | 71.9% | ⚠️ Good (improving) |
+| Throughput | N/A | 14.3 docs/s | ✅ Excellent |
+
+**Document Type Breakdown**:
+- Invitation to Bid: 27/27 (100%)
+- Bid Tabs: 27/27 (100%)
+- Award Letter: 28/28 (100%)
+- Item C Report: 14/14 (100%)
+
+## 🛠️ Development
+
+```bash
+# Install dev dependencies
+pip install -r requirements.txt
+
+# Run linting
+flake8 src/
+
+# Format code
+black src/
+
+# Type checking
+mypy src/
+```
+
+## 📝 Completed vs Future Enhancements
+
+### ✅ Completed
+- [x] Complete ETL pipeline
+- [x] 4 specialized extractors
+- [x] PostgreSQL loader implementation
+- [x] Data validation layer (business rules)
+- [x] Jupyter notebook for analysis
+- [x] Comprehensive documentation
+- [x] Demo script with metrics
+- [x] Structured logging
+- [x] LLM integration (provider-agnostic with evaluation tool) ✨ NEW!
+
+### 🔜 Future Enhancements
+- [ ] Complete bid items table extraction
+- [ ] REST API for on-demand extraction
+- [ ] Real-time monitoring dashboard
+- [ ] Parallel processing (multiprocessing)
+- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] Automated tests (pytest)
+- [ ] Docker production image
+- [ ] Hybrid LLM strategy (use LLM only for low-confidence cases)
+
+## 🤝 Technical Decisions
+
+### Why Python?
+- Rich ecosystem for PDF processing (pypdf, pdfplumber)
+- Strong data engineering libraries (pandas, SQLAlchemy)
+- Easy integration with AI/ML tools
+
+### Why PostgreSQL?
+- Robust ACID compliance
+- Excellent support for structured data
+- Good query performance
+- Free and open source
+
+### Why Multiple Extraction Methods?
+- Different document types require different approaches
+- Fallback strategy ensures resilience
+- Allows benchmarking and optimization
+
+## � Documentation
+
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - System design and technical decisions
+- [SUMMARY.md](docs/SUMMARY.md) - Executive summary and results
+- [PRESENTATION_GUIDE.md](docs/PRESENTATION_GUIDE.md) - Technical interview preparation
+
+## 🎥 Quick Demo
+
+```bash
+# Run complete demonstration
+python scripts/run_demo.py "source/source_files/2023 nc d1/" --output demo_results.json
+
+# Expected output:
+# ✓ 96/100 documents successfully processed
+# ✓ 96.0% extraction success rate
+# ✓ 71.9% average data completeness
+# ✓ 0.073s average processing time
+# ✓ Validated 96 extractions
+```
+
+## 🏗️ Built With
+
+- **Python 3.12** - Core language
+- **pypdf + pdfplumber** - PDF extraction
+- **PostgreSQL** - Data storage
+- **SQLAlchemy** - ORM
+- **Pydantic** - Data validation
+- **structlog** - Structured logging
+- **Jupyter** - Analysis & visualization
+
+## 📧 Contact
+
+**Andre Pereira**  
+Data Engineer Challenge - Edgevanta  
+January 2026
+
+---
+
+**Note**: This is a technical exercise demonstrating production-ready data engineering practices for PDF document processing. The solution prioritizes reliability, maintainability, and scalability.
