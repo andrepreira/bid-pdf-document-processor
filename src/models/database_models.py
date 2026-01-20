@@ -109,6 +109,8 @@ class ExtractionLog(Base):
     confidence_score = Column(Numeric(4, 3))
     processing_time_seconds = Column(Numeric(8, 3))
     records_extracted = Column(Integer)
+    needs_ocr = Column(Boolean, default=False)
+    needs_ocr_reasons = Column(Text)
     file_hash = Column(String(64))
     file_size_bytes = Column(Integer)
     file_mtime = Column(DateTime)

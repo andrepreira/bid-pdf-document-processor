@@ -72,6 +72,8 @@ CREATE TABLE extraction_logs (
     confidence_score DECIMAL(4,3),
     processing_time_seconds DECIMAL(8,3),
     records_extracted INTEGER,
+    needs_ocr BOOLEAN DEFAULT FALSE,
+    needs_ocr_reasons TEXT,
     file_hash VARCHAR(64),
     file_size_bytes INTEGER,
     file_mtime TIMESTAMP,

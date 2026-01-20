@@ -119,7 +119,9 @@ class DocumentClassifier:
         """
         from src.extractors import (
             AwardLetterExtractor,
+            BidSummaryExtractor,
             BidTabsExtractor,
+            BidsAsReadExtractor,
             InvitationToBidExtractor,
             ItemCExtractor,
         )
@@ -129,6 +131,8 @@ class DocumentClassifier:
             DocumentType.BID_TABS: BidTabsExtractor,
             DocumentType.AWARD_LETTER: AwardLetterExtractor,
             DocumentType.ITEM_C_REPORT: ItemCExtractor,
+            DocumentType.BID_SUMMARY: BidSummaryExtractor,
+            DocumentType.BIDS_AS_READ: BidsAsReadExtractor,
         }
         
         return mapping.get(doc_type)

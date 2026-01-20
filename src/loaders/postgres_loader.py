@@ -168,6 +168,10 @@ class PostgresLoader:
                 'status': extraction_result.get('status'),
                 'error_message': extraction_result.get('error'),
                 'processing_time_seconds': extraction_result.get('metadata', {}).get('processing_time'),
+                'needs_ocr': extraction_result.get('metadata', {}).get('needs_ocr'),
+                'needs_ocr_reasons': self._format_ocr_reasons(
+                    extraction_result.get('metadata', {}).get('needs_ocr_reasons')
+                ),
                 'file_hash': extraction_result.get('metadata', {}).get('file_hash'),
                 'file_size_bytes': extraction_result.get('metadata', {}).get('file_size_bytes'),
                 'file_mtime': file_mtime_dt,
@@ -202,6 +206,16 @@ class PostgresLoader:
                 return None
 
         return None
+
+    def _format_ocr_reasons(self, reasons) -> Optional[str]:
+        """Format OCR reasons into a string for storage."""
+        if not reasons:
+            return None
+        if isinstance(reasons, str):
+            return reasons
+        if isinstance(reasons, list):
+            return ",".join(str(reason) for reason in reasons)
+        return str(reasons)
     
     def load_extraction_result(self, result: Dict) -> bool:
         """Load complete extraction result.

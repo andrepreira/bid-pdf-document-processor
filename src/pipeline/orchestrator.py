@@ -169,6 +169,19 @@ class Pipeline:
             result["document_type"] = doc_type.value
             result["file_path"] = str(pdf_path)
 
+            needs_ocr, reasons = self._assess_needs_ocr(result)
+            result.setdefault("metadata", {}).update({
+                "needs_ocr": needs_ocr,
+                "needs_ocr_reasons": reasons,
+            })
+            if needs_ocr and result.get("status") == "success":
+                result["status"] = "partial"
+                logger.warning(
+                    "OCR recommended",
+                    file=pdf_path.name,
+                    reasons=reasons,
+                )
+
             file_mtime_iso = datetime.fromtimestamp(
                 fingerprint["file_mtime"], tz=timezone.utc
             ).isoformat()
@@ -209,6 +222,43 @@ class Pipeline:
                     "file_mtime_ts": fingerprint.get("file_mtime"),
                 },
             }
+
+    def _assess_needs_ocr(self, result: Dict) -> tuple[bool, List[str]]:
+        """Heuristic to detect PDFs that likely need OCR.
+
+        Args:
+            result: Extraction result dictionary
+
+        Returns:
+            Tuple of (needs_ocr, reasons)
+        """
+        reasons: List[str] = []
+        metadata = result.get("metadata", {}) if isinstance(result, dict) else {}
+        text_length = metadata.get("text_length") or 0
+        pages_with_text = metadata.get("text_pages_with_content") or 0
+
+        if pages_with_text == 0 or text_length < 50:
+            reasons.append("no_text_extracted")
+
+        data = result.get("data") or {}
+        if isinstance(data, dict):
+            total_fields = len(data)
+            filled_fields = 0
+            for value in data.values():
+                if value is None:
+                    continue
+                if isinstance(value, (list, dict)) and len(value) == 0:
+                    continue
+                if isinstance(value, str) and value.strip() == "":
+                    continue
+                filled_fields += 1
+
+            if total_fields == 0 or filled_fields == 0:
+                reasons.append("empty_data")
+            elif filled_fields <= 1 and (data.get("bidders") == [] and data.get("bid_items") == []):
+                reasons.append("low_field_coverage")
+
+        return (len(reasons) > 0, reasons)
     
     def process_directory(self, pattern: str = "**/*.pdf") -> List[Dict]:
         """Process all PDFs in directory.

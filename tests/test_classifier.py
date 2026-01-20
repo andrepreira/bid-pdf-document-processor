@@ -69,11 +69,15 @@ def test_classify_by_content_unknown_on_empty(monkeypatch):
 def test_get_extractor_class_mapping():
     invite_cls = DocumentClassifier.get_extractor_class(DocumentType.INVITATION_TO_BID)
     bid_tabs_cls = DocumentClassifier.get_extractor_class(DocumentType.BID_TABS)
+    bid_summary_cls = DocumentClassifier.get_extractor_class(DocumentType.BID_SUMMARY)
+    bids_as_read_cls = DocumentClassifier.get_extractor_class(DocumentType.BIDS_AS_READ)
     award_cls = DocumentClassifier.get_extractor_class(DocumentType.AWARD_LETTER)
     item_c_cls = DocumentClassifier.get_extractor_class(DocumentType.ITEM_C_REPORT)
 
     assert invite_cls is not None and invite_cls.__name__ == "InvitationToBidExtractor"
     assert bid_tabs_cls is not None and bid_tabs_cls.__name__ == "BidTabsExtractor"
+    assert bid_summary_cls is not None and bid_summary_cls.__name__ == "BidSummaryExtractor"
+    assert bids_as_read_cls is not None and bids_as_read_cls.__name__ == "BidsAsReadExtractor"
     assert award_cls is not None and award_cls.__name__ == "AwardLetterExtractor"
     assert item_c_cls is not None and item_c_cls.__name__ == "ItemCExtractor"
     assert DocumentClassifier.get_extractor_class(DocumentType.UNKNOWN) is None

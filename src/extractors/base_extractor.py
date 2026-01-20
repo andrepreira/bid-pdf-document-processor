@@ -89,6 +89,7 @@ class BaseExtractor(ABC):
             )
             
             data = self.extract()
+            text_stats = self._extract_text_stats()
             
             self.processing_time = time.time() - self.start_time
             
@@ -106,6 +107,7 @@ class BaseExtractor(ABC):
                     "file_path": str(self.pdf_path),
                     "extraction_method": self.extraction_method,
                     "processing_time": self.processing_time,
+                    **text_stats,
                 }
             }
             
@@ -119,6 +121,7 @@ class BaseExtractor(ABC):
                 processing_time=f"{self.processing_time:.2f}s"
             )
             
+            text_stats = self._extract_text_stats()
             return {
                 "status": "failed",
                 "data": None,
@@ -127,6 +130,7 @@ class BaseExtractor(ABC):
                     "file_path": str(self.pdf_path),
                     "extraction_method": self.extraction_method,
                     "processing_time": self.processing_time,
+                    **text_stats,
                 }
             }
     
@@ -147,3 +151,30 @@ class BaseExtractor(ABC):
         filled_fields = sum(1 for v in data.values() if v is not None and v != "")
         
         return filled_fields / total_fields if total_fields > 0 else 0.0
+
+    def _extract_text_stats(self) -> Dict:
+        """Compute simple text stats using pypdf.
+
+        Returns:
+            Dict with text length and pages with text.
+        """
+        try:
+            reader = pypdf.PdfReader(str(self.pdf_path))
+            text_length = 0
+            pages_with_text = 0
+            for page in reader.pages:
+                page_text = page.extract_text() or ""
+                if page_text.strip():
+                    pages_with_text += 1
+                    text_length += len(page_text)
+            return {
+                "text_length": text_length,
+                "text_pages_with_content": pages_with_text,
+                "text_page_count": len(reader.pages),
+            }
+        except Exception:
+            return {
+                "text_length": 0,
+                "text_pages_with_content": 0,
+                "text_page_count": 0,
+            }
