@@ -151,20 +151,15 @@ pytest tests/
 
 # Run with coverage
 pytest --cov=src tests/
+
+# Run CI-like test script
+bash scripts/run_tests_ci.sh
 ```
 
 ## 🤖 LLM Evaluation (Future)
 
 LLM evaluation tooling is planned for a future release. See
 [docs/LLM_GUIDE.md](docs/LLM_GUIDE.md) for the roadmap.
-pytest
-
-# Run with coverage
-pytest --cov=src tests/
-
-# Run specific test file
-pytest tests/test_extractors.py
-```
 
 ## 📈 Data Quality & Validation
 
