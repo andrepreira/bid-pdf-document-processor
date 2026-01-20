@@ -1,0 +1,123 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pdf-processor-cronjob
+  namespace: data-pipeline
+spec:
+  # Schedule: Every Sunday at midnight (UTC)
+  schedule: "0 0 * * 0"
+  
+  # Keep last 3 successful and 1 failed job for debugging
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  
+  # Concurrent execution policy
+  concurrencyPolicy: Forbid  # Prevent overlapping jobs
+  
+  jobTemplate:
+    spec:
+      # Retry policy
+      backoffLimit: 2  # Retry up to 2 times on failure
+      
+      # Cleanup completed jobs after 1 hour
+      ttlSecondsAfterFinished: 3600
+      
+      template:
+        metadata:
+          labels:
+            app: pdf-processor
+            component: batch-job
+        spec:
+          # IRSA: Use the ServiceAccount with IAM role
+          serviceAccountName: pdf-processor-sa
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          
+          restartPolicy: OnFailure
+          
+          containers:
+            - name: processor
+              image: <AWS_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/pdf-processor:latest
+              imagePullPolicy: IfNotPresent
+              
+              command:
+                - python
+                - main.py
+              
+              env:
+                # S3 bucket configuration
+                - name: S3_BUCKET
+                  value: "my-datalake-bucket"
+                - name: S3_RAW_PREFIX
+                  value: "raw/"
+                - name: S3_PROCESSED_PREFIX
+                  value: "processed/"
+                - name: S3_ERROR_PREFIX
+                  value: "error/"
+                
+                # Processing configuration
+                - name: OUTPUT_FORMAT
+                  value: "parquet"  # Recommended: parquet > jsonl
+                - name: BATCH_SIZE
+                  value: "100"
+                - name: MAX_WORKERS
+                  value: "4"
+                
+                # Logging
+                - name: LOG_LEVEL
+                  value: "INFO"
+                - name: PYTHONUNBUFFERED
+                  value: "1"
+              
+              resources:
+                requests:
+                  memory: "2Gi"
+                  cpu: "1000m"
+                limits:
+                  memory: "4Gi"
+                  cpu: "2000m"
+              
+              # Security context
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1000
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          
+          volumes:
+            - name: tmp
+              emptyDir: {}
+          
+          # Node affinity for cost optimization (use Spot instances)
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  preference:
+                    matchExpressions:
+                      - key: node.kubernetes.io/instance-type
+                        operator: In
+                        values:
+                          - c5.xlarge
+                          - c5.2xlarge
+                - weight: 50
+                  preference:
+                    matchExpressions:
+                      - key: eks.amazonaws.com/capacityType
+                        operator: In
+                        values:
+                          - SPOT
+          
+          # Tolerate spot instance interruptions
+          tolerations:
+            - key: "spot"
+              operator: "Equal"
+              value: "true"
+              effect: "NoSchedule"

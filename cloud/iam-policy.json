@@ -1,0 +1,51 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "S3ReadRawLayer",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::my-datalake-bucket/raw/*",
+        "arn:aws:s3:::my-datalake-bucket"
+      ]
+    },
+    {
+      "Sid": "S3WriteProcessedLayer",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:PutObjectAcl",
+        "s3:PutObjectTagging"
+      ],
+      "Resource": [
+        "arn:aws:s3:::my-datalake-bucket/processed/*"
+      ]
+    },
+    {
+      "Sid": "S3WriteErrorLayer",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:PutObjectAcl",
+        "s3:PutObjectTagging"
+      ],
+      "Resource": [
+        "arn:aws:s3:::my-datalake-bucket/error/*"
+      ]
+    },
+    {
+      "Sid": "S3DeleteRawAfterProcessing",
+      "Effect": "Allow",
+      "Action": [
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::my-datalake-bucket/raw/*"
+      ]
+    }
+  ]
+}
