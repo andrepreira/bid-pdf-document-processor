@@ -98,11 +98,23 @@ class PostgresLoader:
             Number of bidders loaded
         """
         count = 0
+        existing = self.session.query(Bidder).filter_by(contract_id=contract_id).all()
+        existing_keys = {
+            self._bidder_key(row.bidder_name, row.total_bid_amount) for row in existing
+        }
+        pending_keys = set()
         for bidder_data in bidders:
             try:
                 bidder_data['contract_id'] = contract_id
+                bidder_key = self._bidder_key(
+                    bidder_data.get('bidder_name'),
+                    bidder_data.get('total_bid_amount')
+                )
+                if bidder_key in existing_keys or bidder_key in pending_keys:
+                    continue
                 bidder = Bidder(**bidder_data)
                 self.session.add(bidder)
+                pending_keys.add(bidder_key)
                 count += 1
             except Exception as e:
                 logger.warning("Failed to load bidder",
@@ -230,15 +242,15 @@ class PostgresLoader:
             # Log extraction
             self.log_extraction(result)
             
-            # Only process successful extractions
-            if result.get('status') != 'success' or 'data' not in result:
+            # Only process extractions with data
+            if result.get('status') not in ('success', 'partial') or 'data' not in result:
                 return True  # Logging is success enough for failed extractions
             
             data = result['data']
             
             # Load contract
             contract = self.load_contract({
-                'contract_number': data.get('contract_number'),
+                'contract_number': self._normalize_contract_number(data.get('contract_number')),
                 'wbs_element': data.get('wbs_element'),
                 'counties': data.get('counties'),
                 'description': data.get('description'),
@@ -321,6 +333,18 @@ class PostgresLoader:
     def _parse_datetime(self, datetime_str: Optional[str]):
         """Parse datetime string to datetime object."""
         return self._parse_date(datetime_str)
+
+    def _normalize_contract_number(self, value: Optional[str]) -> Optional[str]:
+        """Normalize contract numbers for consistent keys."""
+        if not value:
+            return None
+        return str(value).strip().upper()
+
+    def _bidder_key(self, name, total_amount) -> str:
+        """Build a deduplication key for bidders."""
+        name_key = (name or "").strip().upper()
+        amount_key = str(total_amount) if total_amount is not None else ""
+        return f"{name_key}|{amount_key}"
     
     def close(self):
         """Close database connection."""

@@ -1,23 +1,35 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: bid_processor_db
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: bid_processor
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  pipeline:
+    build: .
+    container_name: bid_processor_pipeline
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SOURCE_DIR: /app/source/source_files/
+    volumes:
+      - ./source/source_files:/app/source/source_files:ro
 
   # Optional: PgAdmin for database management
   pgadmin:

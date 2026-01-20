@@ -85,10 +85,9 @@ Modify the `schedule` field in [cronjob.yaml](cronjob.yaml) to change frequency.
 Adjust based on your workload in [cronjob.yaml](cronjob.yaml).
 
 ### Output Format
-Default: `parquet` (recommended)
-Alternative: `jsonl`
+Configured: `parquet` (recommended)
 
-Change `OUTPUT_FORMAT` environment variable in [cronjob.yaml](cronjob.yaml).
+Set `OUTPUT_FORMAT=parquet` in [cronjob.yaml](cronjob.yaml).
 
 ## Security Features
 

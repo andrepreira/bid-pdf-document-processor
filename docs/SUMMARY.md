@@ -195,11 +195,25 @@ with Pool(workers=4) as pool:
 
 ```bash
 # Setup
+pip install uv
+uv pip install -r requirements.txt
+cp .env.example .env
 docker-compose up -d  # Start PostgreSQL
-pip install -r requirements.txt
 
 # Run pipeline
 python scripts/run_pipeline.py source/source_files/
+
+# Run pipeline with PostgreSQL load
+python scripts/run_pipeline.py source/source_files/ --load-postgres
+
+# Run via Docker (reads .env)
+bash scripts/run_docker_pipeline.sh
+
+# Run migrations manually (optional)
+bash scripts/run_migrations.sh
+
+# Run pipeline via Docker (build + run with Postgres)
+bash scripts/run_docker_pipeline.sh
 
 # Run demo with validation
 python scripts/run_demo.py source/source_files/ --output results.json

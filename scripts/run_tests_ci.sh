@@ -25,8 +25,8 @@ fi
 source "$VENV_DIR/bin/activate"
 
 print_step "Installing dependencies"
-python -m pip install --upgrade pip
-pip install -r "$ROOT_DIR/requirements.txt"
+python -m pip install uv
+uv pip install -r "$ROOT_DIR/requirements.txt"
 
 print_step "Cleaning previous artifacts"
 rm -rf "$ARTIFACTS_DIR" report.xml coverage.xml

@@ -96,6 +96,48 @@ DEFAULT_FIELD_MAPPINGS: Dict[str, Dict[str, Any]] = {
             }
         },
     },
+    "bids_as_read": {
+        "mapping_name": "bids_as_read_default",
+        "fields": [
+            "contract_number",
+            "bidders",
+        ],
+        "aliases": {},
+        "list_fields": {
+            "bidders": {
+                "fields": [
+                    "bidder_name",
+                    "bidder_location",
+                    "total_bid_amount",
+                    "bid_rank",
+                    "percentage_diff",
+                    "is_winner",
+                ],
+                "aliases": {},
+            }
+        },
+    },
+    "bid_summary": {
+        "mapping_name": "bid_summary_default",
+        "fields": [
+            "contract_number",
+            "bidders",
+        ],
+        "aliases": {},
+        "list_fields": {
+            "bidders": {
+                "fields": [
+                    "bidder_name",
+                    "bidder_location",
+                    "total_bid_amount",
+                    "bid_rank",
+                    "percentage_diff",
+                    "is_winner",
+                ],
+                "aliases": {},
+            }
+        },
+    },
 }
 
 

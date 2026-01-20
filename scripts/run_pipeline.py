@@ -1,6 +1,8 @@
 """Main script to run the PDF extraction pipeline."""
 import argparse
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -20,6 +22,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.pipeline.orchestrator import Pipeline
 from src.loaders.postgres_loader import PostgresLoader
+
+
+def run_migrations(database_url: str | None) -> None:
+    """Run Alembic migrations if database loading is enabled."""
+    if database_url:
+        os.environ["DATABASE_URL"] = database_url
+    subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], check=True)
 
 
 def main():
@@ -108,6 +117,7 @@ def main():
     if args.load_postgres:
         print("\nLoading results into PostgreSQL...")
         try:
+            run_migrations(args.database_url)
             loader = PostgresLoader(database_url=args.database_url)
             loader.create_tables()
             load_summary = loader.load_batch(results)

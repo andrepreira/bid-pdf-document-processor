@@ -31,6 +31,8 @@ This project implements a complete ETL pipeline to process PDF documents from No
 2. **Bid Tabs** - Tabular bid submissions with pricing
 3. **Award Letter** - Contract award notifications
 4. **Item C Report** - Bid comparison summaries
+5. **Bids As Read** - Raw bid readings (summary lines)
+6. **Bid Summary** - Bid summary rollups
 
 ## 🏗️ Architecture
 
@@ -63,14 +65,15 @@ cd bid-pdf-document-processor
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Setup database
-docker-compose up -d
+# Install dependencies (uv)
+pip install uv
+uv pip install -r requirements.txt
 
 # Copy environment file
 cp .env.example .env
+
+# Setup database
+docker-compose up -d
 ```
 
 ### Run Pipeline
@@ -87,6 +90,44 @@ python scripts/run_pipeline.py source/source_files/ --output results.json
 
 # Summary only
 python scripts/run_pipeline.py source/source_files/ --summary-only
+ 
+# Load results into PostgreSQL
+python scripts/run_pipeline.py source/source_files/ --load-postgres
+
+# Load with custom DB URL
+python scripts/run_pipeline.py source/source_files/ --load-postgres --database-url "postgresql://user:pass@host:5432/db"
+
+# Restrict files by glob pattern
+python scripts/run_pipeline.py source/source_files/ --pattern "**/*Bid Tabs*.pdf"
+
+# Incremental processing (skip unchanged)
+python scripts/run_pipeline.py source/source_files/ --incremental --state-file .pipeline_state.json
+
+# Run via Docker (build + run with Postgres)
+# Uses DATABASE_URL and SOURCE_DIR from .env
+bash scripts/run_docker_pipeline.sh
+```
+
+### Pipeline Parameters
+
+| Parameter | Description |
+| --- | --- |
+| source_dir | Directory containing PDF files (positional) |
+| --pattern | Glob pattern for PDF files (default: **/*.pdf) |
+| --output | Output JSON file for results |
+| --summary-only | Only print summary statistics |
+| --incremental | Skip unchanged files using cached fingerprints |
+| --state-file | Optional path for incremental state cache |
+| --load-postgres | Load extraction results into PostgreSQL |
+| --database-url | PostgreSQL connection string (overrides DATABASE_URL env var) |
+
+### Database Migrations
+
+Migrations run automatically when using `--load-postgres` or the Docker entrypoint.
+If you need to run them manually:
+
+```bash
+bash scripts/run_migrations.sh
 ```
 
 ## 📁 Project Structure
@@ -96,6 +137,8 @@ bid-pdf-document-processor/
 ├── src/
 │   ├── extractors/          # PDF extraction logic
 │   │   ├── base_extractor.py
+│   │   ├── bids_as_read_extractor.py
+│   │   ├── bid_summary_extractor.py
 │   │   ├── invitation_extractor.py
 │   │   ├── bid_tabs_extractor.py
 │   │   ├── award_letter_extractor.py
@@ -154,7 +197,18 @@ pytest --cov=src tests/
 
 # Run CI-like test script
 bash scripts/run_tests_ci.sh
+
+# Run pipeline via Docker + PostgreSQL
+bash scripts/run_docker_pipeline.sh
 ```
+
+## 🧩 Scripts
+
+- [scripts/run_pipeline.py](scripts/run_pipeline.py) - Executa o pipeline de extração, com opções de saída e carga no Postgres.
+- [scripts/run_demo.py](scripts/run_demo.py) - Demonstração com métricas resumidas.
+- [scripts/run_tests_ci.sh](scripts/run_tests_ci.sh) - Testes em modo CI com cobertura.
+- [scripts/run_docker_pipeline.sh](scripts/run_docker_pipeline.sh) - Build + run via Docker com PostgreSQL.
+- [scripts/run_migrations.sh](scripts/run_migrations.sh) - Executa migrations do Alembic.
 
 ## 🤖 LLM Evaluation (Future)
 
@@ -186,8 +240,9 @@ LLM evaluation tooling is planned for a future release. See
 ## 🛠️ Development
 
 ```bash
-# Install dev dependencies
-pip install -r requirements.txt
+# Install dev dependencies (uv)
+pip install uv
+uv pip install -r requirements.txt
 
 # Run linting
 flake8 src/
@@ -203,7 +258,7 @@ mypy src/
 
 ### ✅ Completed
 - [x] Complete ETL pipeline
-- [x] 4 specialized extractors
+- [x] 6 specialized extractors
 - [x] PostgreSQL loader implementation
 - [x] Data validation layer (business rules)
 - [x] Jupyter notebook for analysis
