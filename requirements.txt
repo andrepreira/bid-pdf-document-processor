@@ -16,19 +16,8 @@ alembic==1.13.1
 pydantic==2.5.3
 pydantic-settings==2.1.0
 
-# LLM Integration (Optional - for advanced extraction)
-# LiteLLM provides unified interface for all LLM providers
-litellm==1.50.0
-
-# Specific LLM providers (install as needed)
-google-generativeai==0.3.2  # For Google Gemini
-openai==1.52.0              # For OpenAI GPT models
-anthropic==0.34.0           # For Claude models
-
-# Legacy LangChain support (optional) - REMOVED due to dependency conflicts
-# If you need LangChain, install it separately in a different environment
-# langchain==0.1.4
-# langchain-openai==0.0.5
+# LLM Integration (Future)
+# Planned for a future release; no LLM dependencies are required today.
 
 # Testing
 pytest==7.4.4

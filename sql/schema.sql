@@ -72,6 +72,9 @@ CREATE TABLE extraction_logs (
     confidence_score DECIMAL(4,3),
     processing_time_seconds DECIMAL(8,3),
     records_extracted INTEGER,
+    file_hash VARCHAR(64),
+    file_size_bytes INTEGER,
+    file_mtime TIMESTAMP,
     extraction_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -81,6 +84,7 @@ CREATE INDEX idx_contracts_date ON contracts(bid_opening_date);
 CREATE INDEX idx_bidders_contract ON bidders(contract_id);
 CREATE INDEX idx_bid_items_contract ON bid_items(contract_id);
 CREATE INDEX idx_extraction_logs_file ON extraction_logs(file_path);
+CREATE INDEX idx_extraction_logs_hash ON extraction_logs(file_hash);
 CREATE INDEX idx_extraction_logs_status ON extraction_logs(status);
 
 -- Updated_at trigger

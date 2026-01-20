@@ -94,6 +94,71 @@ class BusinessRulesValidator:
             return False, f"Bid items sum mismatch: {'; '.join(mismatches)}"
         
         return True, "Bid items validated"
+
+    def validate_bidder_outliers(self, bidders: List[Dict]) -> Tuple[bool, str]:
+        """Detect outliers in bidder totals using IQR.
+
+        Args:
+            bidders: List of bidders
+
+        Returns:
+            (is_valid, message) tuple
+        """
+        amounts = []
+        bidder_lookup = []
+
+        for bidder in bidders:
+            amount = bidder.get("total_bid_amount")
+            if amount is None:
+                continue
+            try:
+                amount_val = float(amount)
+            except Exception:
+                continue
+            amounts.append(amount_val)
+            bidder_lookup.append((bidder.get("bidder_name") or "unknown", amount_val))
+
+        if len(amounts) < 4:
+            return True, "Insufficient data for outlier detection"
+
+        sorted_amounts = sorted(amounts)
+        q1 = self._quantile(sorted_amounts, 0.25)
+        q3 = self._quantile(sorted_amounts, 0.75)
+        iqr = q3 - q1
+
+        if iqr == 0:
+            return True, "No dispersion for outlier detection"
+
+        lower = q1 - 1.5 * iqr
+        upper = q3 + 1.5 * iqr
+
+        outliers = [
+            f"{name}: {amount}"
+            for name, amount in bidder_lookup
+            if amount < lower or amount > upper
+        ]
+
+        if outliers:
+            return False, f"Outlier bid totals detected: {', '.join(outliers)}"
+
+        return True, "No bidder total outliers"
+
+    def _quantile(self, values: List[float], quantile: float) -> float:
+        """Compute quantile with linear interpolation."""
+        if not values:
+            return 0.0
+
+        if quantile <= 0:
+            return values[0]
+        if quantile >= 1:
+            return values[-1]
+
+        position = (len(values) - 1) * quantile
+        lower_index = int(position)
+        upper_index = min(lower_index + 1, len(values) - 1)
+        weight = position - lower_index
+
+        return values[lower_index] * (1 - weight) + values[upper_index] * weight
     
     def validate_dates(self, contract_data: Dict) -> Tuple[bool, str]:
         """Validate date logic (available < completion, etc.).
@@ -190,6 +255,7 @@ class BusinessRulesValidator:
             'bid_items_sum': self.validate_bid_items_sum(bidders, bid_items),
             'dates': self.validate_dates(contract_data),
             'goals': self.validate_goals(contract_data),
+            'bidder_outliers': self.validate_bidder_outliers(bidders),
         }
         
         # Check if all validations passed

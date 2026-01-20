@@ -158,6 +158,9 @@ class PostgresLoader:
             extraction_result: Extraction result dictionary
         """
         try:
+            file_mtime = extraction_result.get('metadata', {}).get('file_mtime')
+            file_mtime_dt = self._parse_datetime(file_mtime) if file_mtime else None
+
             log_data = {
                 'file_path': extraction_result.get('file_path'),
                 'document_type': extraction_result.get('document_type'),
@@ -165,6 +168,9 @@ class PostgresLoader:
                 'status': extraction_result.get('status'),
                 'error_message': extraction_result.get('error'),
                 'processing_time_seconds': extraction_result.get('metadata', {}).get('processing_time'),
+                'file_hash': extraction_result.get('metadata', {}).get('file_hash'),
+                'file_size_bytes': extraction_result.get('metadata', {}).get('file_size_bytes'),
+                'file_mtime': file_mtime_dt,
             }
             
             log = ExtractionLog(**log_data)
@@ -174,6 +180,28 @@ class PostgresLoader:
         except Exception as e:
             self.session.rollback()
             logger.error("Failed to log extraction", error=str(e))
+
+    def _parse_datetime(self, value) -> Optional[datetime]:
+        """Parse datetime from ISO string or timestamp."""
+        if value is None:
+            return None
+
+        if isinstance(value, datetime):
+            return value
+
+        if isinstance(value, (int, float)):
+            try:
+                return datetime.fromtimestamp(value)
+            except Exception:
+                return None
+
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
+            except Exception:
+                return None
+
+        return None
     
     def load_extraction_result(self, result: Dict) -> bool:
         """Load complete extraction result.

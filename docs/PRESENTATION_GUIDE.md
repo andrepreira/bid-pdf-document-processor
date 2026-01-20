@@ -25,7 +25,7 @@ PDFs → Classifier → Extractor → Validator → PostgreSQL
 ```
 
 **Key Design Decisions**:
-1. **Multiple extraction strategies** (Regex → PDFPlumber → LLM fallback)
+1. **Multiple extraction strategies** (Regex → PDFPlumber)
    - Why: Different documents need different approaches
    - Trade-off: Complexity vs. accuracy
 
@@ -131,7 +131,7 @@ def _extract_contract_number(self, text: str) -> Optional[str]:
 ### 8. Next Steps & Roadmap (1 min)
 
 **If I had more time**:
-1. **LLM Integration**: For complex/edge cases (~5% improvement)
+1. **LLM Integration (Future)**: For complex/edge cases
 2. **Complete Table Extraction**: Full bid items with all columns
 3. **API Layer**: REST API for on-demand extraction
 4. **Monitoring Dashboard**: Real-time quality metrics
@@ -168,8 +168,8 @@ A: "Three layers:
 3. Confidence scoring - flag uncertain extractions
 Plus extraction logs for debugging."
 
-**Q: Why not use an LLM for everything?**
-A: "Cost and speed. Regex + PDFPlumber cost $0 and are fast. LLMs cost ~$0.02 per doc and add latency. Hybrid approach: use free tools first, LLM for edge cases only."
+**Q: Would you add an LLM later?**
+A: "Potentially, as a future fallback for edge cases. It's not in the current build due to cost, latency, and the need to keep the pipeline deterministic."
 
 **Q: How would you handle new document types?**
 A: "Modular design makes this easy:

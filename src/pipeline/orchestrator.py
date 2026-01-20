@@ -1,11 +1,15 @@
 """Main pipeline orchestrator."""
+import hashlib
+import json
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import structlog
 
 from src.pipeline.classifier import DocumentClassifier, DocumentType
+from src.transformers.file_mapping import MappingResolver, apply_mapping
 
 logger = structlog.get_logger()
 
@@ -13,14 +17,20 @@ logger = structlog.get_logger()
 class Pipeline:
     """Main ETL pipeline orchestrator."""
     
-    def __init__(self, source_dir: str | Path):
+    def __init__(self, source_dir: str | Path, incremental: bool = False, state_file: Optional[str] = None):
         """Initialize pipeline.
         
         Args:
             source_dir: Directory containing PDF files
+            incremental: Skip unchanged files using cached fingerprints
+            state_file: Optional path for incremental state cache
         """
         self.source_dir = Path(source_dir)
         self.results = []
+        self.incremental = incremental
+        self.state_file = Path(state_file) if state_file else self.source_dir / ".pipeline_state.json"
+        self._state: Dict[str, Dict] = {}
+        self.mapping_resolver = MappingResolver(self.source_dir)
         
         if not self.source_dir.exists():
             raise ValueError(f"Source directory does not exist: {self.source_dir}")
@@ -37,8 +47,77 @@ class Pipeline:
         pdf_files = list(self.source_dir.glob(pattern))
         logger.info(f"Discovered {len(pdf_files)} PDF files")
         return pdf_files
+
+    def _compute_file_fingerprint(self, pdf_path: Path) -> Dict:
+        """Compute a fingerprint for a file (hash, size, mtime)."""
+        hasher = hashlib.sha256()
+        with open(pdf_path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                hasher.update(chunk)
+
+        stat = pdf_path.stat()
+        return {
+            "file_hash": hasher.hexdigest(),
+            "file_size_bytes": stat.st_size,
+            "file_mtime": stat.st_mtime,
+        }
+
+    def _load_state(self) -> Dict[str, Dict]:
+        """Load incremental processing state from disk."""
+        if not self.state_file.exists():
+            return {}
+        try:
+            with open(self.state_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+        return {}
+
+    def _save_state(self, state: Dict[str, Dict]) -> None:
+        """Persist incremental processing state to disk."""
+        try:
+            with open(self.state_file, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+        except Exception as e:
+            logger.warning("Failed to save pipeline state", error=str(e))
+
+    def _is_unchanged(self, pdf_path: Path, fingerprint: Dict) -> bool:
+        """Check if file fingerprint matches cached state."""
+        cached = self._state.get(str(pdf_path))
+        if not cached:
+            return False
+
+        return (
+            cached.get("file_hash") == fingerprint.get("file_hash")
+            and cached.get("file_size_bytes") == fingerprint.get("file_size_bytes")
+            and cached.get("file_mtime") == fingerprint.get("file_mtime")
+        )
+
+    def _build_skip_result(self, pdf_path: Path, fingerprint: Dict) -> Dict:
+        """Build a standardized skip result for unchanged files."""
+        classifier = DocumentClassifier(pdf_path)
+        doc_type = classifier.classify_filename_only()
+        file_mtime_iso = datetime.fromtimestamp(
+            fingerprint["file_mtime"], tz=timezone.utc
+        ).isoformat()
+
+        return {
+            "file_path": str(pdf_path),
+            "document_type": doc_type.value,
+            "status": "skipped",
+            "error": "unchanged",
+            "metadata": {
+                "file_hash": fingerprint.get("file_hash"),
+                "file_size_bytes": fingerprint.get("file_size_bytes"),
+                "file_mtime": file_mtime_iso,
+                "file_mtime_ts": fingerprint.get("file_mtime"),
+                "skip_reason": "unchanged",
+            },
+        }
     
-    def process_file(self, pdf_path: Path) -> Dict:
+    def process_file(self, pdf_path: Path, fingerprint: Optional[Dict] = None) -> Dict:
         """Process a single PDF file.
         
         Args:
@@ -48,6 +127,7 @@ class Pipeline:
             Dictionary with extraction results
         """
         start_time = time.time()
+        fingerprint = fingerprint or self._compute_file_fingerprint(pdf_path)
         
         logger.info("Processing file", file=pdf_path.name)
         
@@ -77,10 +157,27 @@ class Pipeline:
             # Extract data
             extractor = extractor_class(pdf_path)
             result = extractor.run_extraction()
+
+            # Apply file mapping to normalize extracted fields
+            if result.get("status") == "success" and result.get("data"):
+                mapping = self.mapping_resolver.resolve(doc_type.value, pdf_path.name)
+                mapped_data, mapping_meta = apply_mapping(result["data"], mapping)
+                result["data"] = mapped_data
+                result.setdefault("metadata", {})["mapping"] = mapping_meta
             
             # Add document type to result
             result["document_type"] = doc_type.value
             result["file_path"] = str(pdf_path)
+
+            file_mtime_iso = datetime.fromtimestamp(
+                fingerprint["file_mtime"], tz=timezone.utc
+            ).isoformat()
+            result.setdefault("metadata", {}).update({
+                "file_hash": fingerprint.get("file_hash"),
+                "file_size_bytes": fingerprint.get("file_size_bytes"),
+                "file_mtime": file_mtime_iso,
+                "file_mtime_ts": fingerprint.get("file_mtime"),
+            })
             
             processing_time = time.time() - start_time
             logger.info("File processed successfully",
@@ -103,6 +200,14 @@ class Pipeline:
                 "status": "failed",
                 "error": str(e),
                 "processing_time": processing_time,
+                "metadata": {
+                    "file_hash": fingerprint.get("file_hash"),
+                    "file_size_bytes": fingerprint.get("file_size_bytes"),
+                    "file_mtime": datetime.fromtimestamp(
+                        fingerprint["file_mtime"], tz=timezone.utc
+                    ).isoformat(),
+                    "file_mtime_ts": fingerprint.get("file_mtime"),
+                },
             }
     
     def process_directory(self, pattern: str = "**/*.pdf") -> List[Dict]:
@@ -115,11 +220,23 @@ class Pipeline:
             List of extraction results
         """
         pdf_files = self.discover_pdfs(pattern)
+
+        if self.incremental:
+            self._state = self._load_state()
         
         results = []
         for pdf_path in pdf_files:
-            result = self.process_file(pdf_path)
+            fingerprint = self._compute_file_fingerprint(pdf_path)
+
+            if self.incremental and self._is_unchanged(pdf_path, fingerprint):
+                results.append(self._build_skip_result(pdf_path, fingerprint))
+                continue
+
+            result = self.process_file(pdf_path, fingerprint)
             results.append(result)
+
+            if self.incremental and result.get("status") == "success":
+                self._state[str(pdf_path)] = fingerprint
         
         self.results = results
         
@@ -133,6 +250,9 @@ class Pipeline:
                    successful=successful,
                    failed=failed,
                    skipped=skipped)
+
+        if self.incremental:
+            self._save_state(self._state)
         
         return results
     

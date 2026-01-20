@@ -37,7 +37,7 @@ This document describes the architecture and technical decisions behind the Bid 
 │  │  Extractor   │  │  Extractor   │  │ Extractor│ │
 │  └──────────────┘  └──────────────┘  └──────────┘ │
 │                                                     │
-│  Strategy: Regex → PDFPlumber → LLM (fallback)    │
+│  Strategy: Regex → PDFPlumber (LLM fallback future) │
 └────────┬────────────────────────────────────────┬──┘
          │                                        │
          ▼                                        ▼
@@ -89,11 +89,9 @@ This document describes the architecture and technical decisions behind the Bid 
    - Maintains spatial relationships
    - **When to use**: Bid Tabs with pricing tables
 
-3. **LLM-based Extraction** (Fallback - Optional)
-   - Handles format variations
-   - Can understand context
-   - **When to use**: Edge cases, poor OCR quality
-   - **Trade-offs**: Cost vs. accuracy
+3. **LLM-based Extraction** (Future)
+   - Planned fallback for complex edge cases
+   - Not part of the current implementation
 
 ### 2. Database Design
 
@@ -205,20 +203,8 @@ contracts (1) ──┬─→ (N) bidders
 
 **Current Approach**: Free open-source tools
 
-**If Using LLMs**:
-- **OpenAI GPT-4**: ~$0.03 per document
-- **Claude 3**: ~$0.02 per document
-- **Strategy**: Use LLM only when regex fails
-- **Expected Cost**: <$5/1000 documents (5% LLM usage)
-
-**Trade-off Analysis**:
-```
-Pure Regex: Fast, Free, 80-85% accuracy
-+ PDFPlumber: Fast, Free, 90-95% accuracy
-+ LLM Fallback: Slower, $$$, 98-99% accuracy
-```
-
-**Recommendation**: Hybrid approach (current implementation)
+**LLM Cost/Trade-offs (Future)**:
+Planned analysis for optional LLM fallback once integrated.
 
 ### 8. Monitoring & Observability
 
@@ -256,7 +242,7 @@ Pure Regex: Fast, Free, 80-85% accuracy
 ## Future Enhancements
 
 1. **Incremental Loading**: Only process new/changed files
-2. **LLM Integration**: For complex edge cases
+2. **LLM Integration**: For complex edge cases (future)
 3. **API Layer**: REST API for on-demand extraction
 4. **UI Dashboard**: Monitor pipeline health
 5. **Data Versioning**: Track changes over time

@@ -18,7 +18,7 @@
 This project implements a complete ETL pipeline to process PDF documents from North Carolina DOT construction bid lettings, extracting structured data for analytics and reporting.
 
 **Key Features**:
-- Multi-strategy extraction (Regex + PDFPlumber + LLM-ready)
+- Multi-strategy extraction (Regex + PDFPlumber)
 - Automated document classification
 - Data quality validation with business rules
 - PostgreSQL storage with proper schema design
@@ -35,7 +35,7 @@ This project implements a complete ETL pipeline to process PDF documents from No
 ## 🏗️ Architecture
 
 ```
-PDF Files → Classifier → Extractor (Regex/PDFPlumber/LLM) → Validator → PostgreSQL
+PDF Files → Classifier → Extractor (Regex/PDFPlumber) → Validator → PostgreSQL
                                                                        → CSV Export
 ```
 
@@ -129,13 +129,9 @@ bid-pdf-document-processor/
 - **Pros**: Accurate for well-formatted tables
 - **Cons**: Requires structured layout
 
-### 3. LLM-based Extraction (Optional) ✨ NEW!
-- **Use case**: Complex documents, edge cases, evaluation
-- **Providers**: Gemini, OpenAI, Claude, Ollama (any LiteLLM provider)
-- **Features**: Provider-agnostic, evaluation tool, hybrid fallback
-- **Pros**: Handles variations well, ~15-20% better completeness
-- **Cons**: Slower (1-2s), requires API key, costs ~$0.001-0.02/doc
-- **Guide**: See [docs/LLM_GUIDE.md](docs/LLM_GUIDE.md) for complete setup
+### 3. LLM-based Extraction (Future)
+- Planned as an optional fallback for complex/edge cases
+- See [docs/LLM_GUIDE.md](docs/LLM_GUIDE.md) for the roadmap
 
 ## 📊 Database Schema
 
@@ -157,28 +153,10 @@ pytest tests/
 pytest --cov=src tests/
 ```
 
-## 🤖 LLM Evaluation (Optional)
+## 🤖 LLM Evaluation (Future)
 
-Compare traditional extraction (Regex + PDFPlumber) vs LLM-based extraction:
-
-```bash
-# Quick test with 3 files
-python scripts/evaluate_llm.py source/source_files/ --limit 3
-
-# Full evaluation with Gemini
-python scripts/evaluate_llm.py source/source_files/ --model gemini/gemini-1.5-flash --output llm_eval.json
-
-# Compare different models
-python scripts/evaluate_llm.py source/source_files/ --model gpt-4 --limit 10
-```
-
-**Supported Models:**
-- Google Gemini: `gemini/gemini-1.5-flash` (Recommended)
-- OpenAI: `gpt-4`, `gpt-3.5-turbo`
-- Anthropic: `claude-3-sonnet`, `claude-3-haiku`
-- Local: `ollama/llama2`, `ollama/mistral`
-
-**Setup Guide**: [docs/LLM_GUIDE.md](docs/LLM_GUIDE.md)
+LLM evaluation tooling is planned for a future release. See
+[docs/LLM_GUIDE.md](docs/LLM_GUIDE.md) for the roadmap.
 pytest
 
 # Run with coverage
@@ -237,7 +215,6 @@ mypy src/
 - [x] Comprehensive documentation
 - [x] Demo script with metrics
 - [x] Structured logging
-- [x] LLM integration (provider-agnostic with evaluation tool) ✨ NEW!
 
 ### 🔜 Future Enhancements
 - [ ] Complete bid items table extraction
@@ -247,7 +224,7 @@ mypy src/
 - [ ] CI/CD pipeline (GitHub Actions)
 - [ ] Automated tests (pytest)
 - [ ] Docker production image
-- [ ] Hybrid LLM strategy (use LLM only for low-confidence cases)
+- [ ] LLM fallback for low-confidence cases (future)
 
 ## 🤝 Technical Decisions
 

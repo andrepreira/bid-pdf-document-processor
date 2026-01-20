@@ -43,6 +43,14 @@ class DocumentClassifier:
         
         # Fall back to content-based classification
         return self._classify_by_content()
+
+    def classify_filename_only(self) -> DocumentType:
+        """Classify based on filename patterns only.
+
+        Returns:
+            DocumentType enum value
+        """
+        return self._classify_by_filename()
     
     def _classify_by_filename(self) -> DocumentType:
         """Classify based on filename patterns."""

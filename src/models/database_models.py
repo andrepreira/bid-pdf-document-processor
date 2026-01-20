@@ -109,6 +109,9 @@ class ExtractionLog(Base):
     confidence_score = Column(Numeric(4, 3))
     processing_time_seconds = Column(Numeric(8, 3))
     records_extracted = Column(Integer)
+    file_hash = Column(String(64))
+    file_size_bytes = Column(Integer)
+    file_mtime = Column(DateTime)
     extraction_timestamp = Column(DateTime, default=datetime.utcnow)
 
 

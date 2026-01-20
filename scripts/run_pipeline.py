@@ -19,6 +19,7 @@ structlog.configure(
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.pipeline.orchestrator import Pipeline
+from src.loaders.postgres_loader import PostgresLoader
 
 
 def main():
@@ -44,11 +45,33 @@ def main():
         action="store_true",
         help="Only print summary statistics"
     )
+    parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Skip unchanged files using cached fingerprints"
+    )
+    parser.add_argument(
+        "--state-file",
+        help="Optional path for incremental state cache"
+    )
+    parser.add_argument(
+        "--load-postgres",
+        action="store_true",
+        help="Load extraction results into PostgreSQL"
+    )
+    parser.add_argument(
+        "--database-url",
+        help="PostgreSQL connection string (overrides DATABASE_URL env var)"
+    )
     
     args = parser.parse_args()
     
     # Initialize and run pipeline
-    pipeline = Pipeline(args.source_dir)
+    pipeline = Pipeline(
+        args.source_dir,
+        incremental=args.incremental,
+        state_file=args.state_file
+    )
     results = pipeline.process_directory(args.pattern)
     
     # Get summary
@@ -80,6 +103,21 @@ def main():
             }, f, indent=2, default=str)
         
         print(f"Results saved to: {output_path}")
+
+    # Optional: Load results into PostgreSQL
+    if args.load_postgres:
+        print("\nLoading results into PostgreSQL...")
+        try:
+            loader = PostgresLoader(database_url=args.database_url)
+            loader.create_tables()
+            load_summary = loader.load_batch(results)
+            loader.close()
+            print(
+                f"PostgreSQL load completed: {load_summary['successful']}/"
+                f"{load_summary['total']} records ({load_summary['success_rate']})"
+            )
+        except Exception as e:
+            print(f"PostgreSQL load failed: {e}")
     
     # Print individual results if not summary-only
     if not args.summary_only:

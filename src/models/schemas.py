@@ -90,4 +90,7 @@ class ExtractionResult(BaseModel):
     error_message: Optional[str] = None
     confidence_score: Optional[float] = Field(None, ge=0.0, le=1.0)
     processing_time: Optional[float] = None
+    file_hash: Optional[str] = None
+    file_size_bytes: Optional[int] = None
+    file_mtime: Optional[datetime] = None
     data: Optional[ExtractedData] = None

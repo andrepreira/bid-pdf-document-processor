@@ -50,7 +50,7 @@ This project demonstrates a complete ETL pipeline for extracting structured data
 ### 1. Multi-Strategy Extraction
 - **Regex Pattern Matching**: Fast, deterministic, 0 cost
 - **PDFPlumber Table Extraction**: Excellent for bid tabs
-- **LLM-Ready Architecture**: Optional fallback for edge cases
+- **LLM Integration (Future)**: Planned fallback for edge cases
 
 ### 2. Production-Ready Code
 ```python
@@ -172,7 +172,7 @@ with Pool(workers=4) as pool:
 - [ ] Add unit tests
 
 ### Medium Term (1 month)
-- [ ] LLM integration for edge cases
+- [ ] LLM integration for edge cases (future)
 - [ ] REST API for on-demand extraction
 - [ ] Monitoring dashboard
 - [ ] Advanced validation rules
