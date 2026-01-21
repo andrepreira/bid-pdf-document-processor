@@ -54,9 +54,11 @@ class BidTabsExtractor(BaseExtractor):
                         items = self._parse_bid_items_table(table)
                         bid_items.extend(items)
         
-        # Extract bidder summary from text
+        # Extract bidder summary and bid items from text
         text = self.extract_text()
         bidders = self._extract_bidders_from_text(text)
+        if not bid_items:
+            bid_items = self._extract_bid_items_from_text(text)
         
         return {
             "contract_number": contract_number,
@@ -71,7 +73,7 @@ class BidTabsExtractor(BaseExtractor):
         return {
             "contract_number": self._extract_contract_number(text),
             "bidders": self._extract_bidders_from_text(text),
-            "bid_items": [],  # Difficult to extract without table structure
+            "bid_items": self._extract_bid_items_from_text(text),
         }
     
     def _extract_contract_number(self, text: str) -> Optional[str]:
@@ -191,3 +193,72 @@ class BidTabsExtractor(BaseExtractor):
             return float(num_str)
         except (ValueError, AttributeError):
             return None
+
+    def _extract_bid_items_from_text(self, text: str) -> List[Dict]:
+        """Extract bid items from text lines when tables are not detected."""
+        if not text:
+            return []
+
+        unit_tokens = {
+            "LUMP SUM",
+            "LS",
+            "EA",
+            "TON",
+            "LF",
+            "SY",
+            "CY",
+            "HR",
+            "DAY",
+            "MI",
+            "GAL",
+        }
+
+        items: List[Dict] = []
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        for line in lines:
+            match = re.match(r"^(\d{4})\s+(\S+)\s+([\d,]+(?:\.\d+)?)\s+(.+)$", line)
+            if not match:
+                continue
+
+            item_number = match.group(1)
+            item_code = match.group(2)
+            quantity = self._parse_number(match.group(3))
+            remainder = match.group(4)
+
+            unit = None
+            prices = [self._parse_number(p) for p in re.findall(r"[\d,]+\.\d{2}", remainder)]
+            prices = [p for p in prices if p is not None]
+
+            tokens = remainder.split()
+            tokens_without_prices = [t for t in tokens if not re.match(r"^[\d,]+\.\d{2}$", t)]
+
+            # Identify unit token (prefer last occurrence)
+            if tokens_without_prices:
+                idx = len(tokens_without_prices) - 1
+                while idx >= 0:
+                    candidate = " ".join(tokens_without_prices[idx:idx + 2]).upper()
+                    single = tokens_without_prices[idx].upper()
+                    if candidate in unit_tokens:
+                        unit = candidate.title()
+                        del tokens_without_prices[idx:idx + 2]
+                        break
+                    if single in unit_tokens:
+                        unit = single.title()
+                        del tokens_without_prices[idx]
+                        break
+                    idx -= 1
+
+            description = " ".join(tokens_without_prices).strip() if tokens_without_prices else None
+
+            item = {
+                "item_number": item_number,
+                "item_code": item_code,
+                "description": description.strip() if description else None,
+                "quantity": quantity,
+                "unit": unit,
+                "unit_price": prices[0] if prices else None,
+                "total_price": prices[1] if len(prices) > 1 else (prices[0] if prices else None),
+            }
+            items.append(item)
+
+        return items

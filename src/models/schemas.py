@@ -29,6 +29,9 @@ class ContractData(BaseModel):
     awarded_to: Optional[str] = None
     award_date: Optional[date] = None
     source_file_path: str
+    source_file_hash: Optional[str] = None
+    source_file_mtime: Optional[datetime] = None
+    extraction_run_id: Optional[str] = None
     
     @field_validator('contract_number')
     def validate_contract_number(cls, v):
@@ -93,4 +96,8 @@ class ExtractionResult(BaseModel):
     file_hash: Optional[str] = None
     file_size_bytes: Optional[int] = None
     file_mtime: Optional[datetime] = None
+    run_id: Optional[str] = None
+    ocr_applied: Optional[bool] = None
+    ocr_method: Optional[str] = None
+    ocr_duration_seconds: Optional[float] = None
     data: Optional[ExtractedData] = None

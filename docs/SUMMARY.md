@@ -168,7 +168,8 @@ with Pool(workers=4) as pool:
 ### Short Term (1-2 weeks)
 - [ ] Complete bid items table extraction
 - [ ] Add more date format parsers
-- [ ] Implement incremental loading
+- [x] Incremental processing (local state cache)
+- [ ] Incremental loading (DB idempotence + lineage)
 - [ ] Add unit tests
 
 ### Medium Term (1 month)

@@ -37,7 +37,7 @@ This document describes the architecture and technical decisions behind the Bid 
 │  │  Extractor   │  │  Extractor   │  │ Extractor│ │
 │  └──────────────┘  └──────────────┘  └──────────┘ │
 │                                                     │
-│  Strategy: Regex → PDFPlumber (LLM fallback future) │
+│  Strategy: Regex → PDFPlumber → OCR fallback        │
 └────────┬────────────────────────────────────────┬──┘
          │                                        │
          ▼                                        ▼
@@ -241,7 +241,7 @@ Planned analysis for optional LLM fallback once integrated.
 
 ## Future Enhancements
 
-1. **Incremental Loading**: Only process new/changed files
+1. **Incremental Loading**: DB-level idempotence + lineage
 2. **LLM Integration**: For complex edge cases (future)
 3. **API Layer**: REST API for on-demand extraction
 4. **UI Dashboard**: Monitor pipeline health

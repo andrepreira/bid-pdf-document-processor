@@ -121,6 +121,22 @@ bash scripts/run_docker_pipeline.sh
 | --load-postgres | Load extraction results into PostgreSQL |
 | --database-url | PostgreSQL connection string (overrides DATABASE_URL env var) |
 
+### OCR Configuration
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| OCR_ENABLED | Enable OCR fallback for scanned PDFs | true |
+| OCR_TIMEOUT_SECONDS | OCR execution timeout per file | 300 |
+
+### How to Test OCR
+
+1. Ensure system deps are installed (Tesseract, Ghostscript, qpdf). If using Docker, they are already included.
+2. Set `OCR_ENABLED=true` in your environment or .env.
+3. Run the pipeline against a scanned PDF (no text layer). The pipeline should re-run extraction after OCR.
+4. Verify OCR metadata in logs or `extraction_logs`:
+  - `ocr_applied=true`
+  - `ocr_method=ocrmypdf`
+
 ### Database Migrations
 
 Migrations run automatically when using `--load-postgres` or the Docker entrypoint.
@@ -172,7 +188,12 @@ bid-pdf-document-processor/
 - **Pros**: Accurate for well-formatted tables
 - **Cons**: Requires structured layout
 
-### 3. LLM-based Extraction (Future)
+### 3. OCR Fallback (OCRmyPDF)
+- **Use case**: Scanned PDFs with no text layer
+- **Pros**: Recovers text for standard extractors
+- **Cons**: Slower, needs Tesseract + Ghostscript
+
+### 4. LLM-based Extraction (Future)
 - Planned as an optional fallback for complex/edge cases
 - See [docs/LLM_GUIDE.md](docs/LLM_GUIDE.md) for the roadmap
 

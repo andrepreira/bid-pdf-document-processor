@@ -3,7 +3,13 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir uv \
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends \
+		ghostscript \
+		qpdf \
+		tesseract-ocr \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& pip install --no-cache-dir uv \
 	&& uv pip install --system -r requirements.txt
 
 COPY . .

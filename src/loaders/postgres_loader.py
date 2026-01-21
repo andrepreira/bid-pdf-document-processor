@@ -184,9 +184,13 @@ class PostgresLoader:
                 'needs_ocr_reasons': self._format_ocr_reasons(
                     extraction_result.get('metadata', {}).get('needs_ocr_reasons')
                 ),
+                'ocr_applied': extraction_result.get('metadata', {}).get('ocr_applied'),
+                'ocr_method': extraction_result.get('metadata', {}).get('ocr_method'),
+                'ocr_duration_seconds': extraction_result.get('metadata', {}).get('ocr_duration_seconds'),
                 'file_hash': extraction_result.get('metadata', {}).get('file_hash'),
                 'file_size_bytes': extraction_result.get('metadata', {}).get('file_size_bytes'),
                 'file_mtime': file_mtime_dt,
+                'run_id': extraction_result.get('metadata', {}).get('run_id'),
             }
             
             log = ExtractionLog(**log_data)
@@ -249,8 +253,15 @@ class PostgresLoader:
             data = result['data']
             
             # Load contract
+            file_mtime = result.get('metadata', {}).get('file_mtime')
+            file_mtime_dt = self._parse_datetime(file_mtime) if file_mtime else None
+
+            contract_number = data.get('contract_number')
+            if not contract_number:
+                contract_number = self._infer_contract_number_from_file_path(result.get('file_path'))
+
             contract = self.load_contract({
-                'contract_number': self._normalize_contract_number(data.get('contract_number')),
+                'contract_number': self._normalize_contract_number(contract_number),
                 'wbs_element': data.get('wbs_element'),
                 'counties': data.get('counties'),
                 'description': data.get('description'),
@@ -268,6 +279,9 @@ class PostgresLoader:
                 'awarded_to': data.get('awarded_to'),
                 'award_date': self._parse_date(data.get('award_date')),
                 'source_file_path': result.get('file_path'),
+                'source_file_hash': result.get('metadata', {}).get('file_hash'),
+                'source_file_mtime': file_mtime_dt,
+                'extraction_run_id': result.get('metadata', {}).get('run_id'),
             })
             
             if not contract:
@@ -339,6 +353,24 @@ class PostgresLoader:
         if not value:
             return None
         return str(value).strip().upper()
+
+    def _infer_contract_number_from_file_path(self, file_path: Optional[str]) -> Optional[str]:
+        """Infer contract number from file path when missing."""
+        if not file_path:
+            return None
+
+        import re
+
+        filename = Path(file_path).name
+        patterns = [
+            r"(DA\d{5})",
+            r"\b(\d{8})\b",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, filename, re.IGNORECASE)
+            if match:
+                return match.group(1).upper()
+        return None
 
     def _bidder_key(self, name, total_amount) -> str:
         """Build a deduplication key for bidders."""

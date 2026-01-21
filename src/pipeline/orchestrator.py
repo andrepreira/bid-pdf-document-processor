@@ -5,11 +5,13 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
+from uuid import uuid4
 
 import structlog
 
 from src.pipeline.classifier import DocumentClassifier, DocumentType
 from src.transformers.file_mapping import MappingResolver, apply_mapping
+from src.transformers.ocr import OCRProcessor
 
 logger = structlog.get_logger()
 
@@ -31,6 +33,8 @@ class Pipeline:
         self.state_file = Path(state_file) if state_file else self.source_dir / ".pipeline_state.json"
         self._state: Dict[str, Dict] = {}
         self.mapping_resolver = MappingResolver(self.source_dir)
+        self.ocr_processor = OCRProcessor()
+        self.run_id = uuid4().hex
         
         if not self.source_dir.exists():
             raise ValueError(f"Source directory does not exist: {self.source_dir}")
@@ -154,22 +158,29 @@ class Pipeline:
                     "error": "No extractor available for this document type",
                 }
             
-            # Extract data
-            extractor = extractor_class(pdf_path)
-            result = extractor.run_extraction()
+            result = self._run_extraction(
+                extractor_class=extractor_class,
+                pdf_path=pdf_path,
+                doc_type=doc_type,
+                file_name_for_mapping=pdf_path.name,
+                result_file_path=pdf_path,
+            )
 
-            # Apply file mapping to normalize extracted fields
-            if result.get("status") == "success" and result.get("data"):
-                mapping = self.mapping_resolver.resolve(doc_type.value, pdf_path.name)
-                mapped_data, mapping_meta = apply_mapping(result["data"], mapping)
-                result["data"] = mapped_data
-                result.setdefault("metadata", {})["mapping"] = mapping_meta
-            
-            # Add document type to result
-            result["document_type"] = doc_type.value
-            result["file_path"] = str(pdf_path)
+            self._normalize_contract_number(result, pdf_path)
 
             needs_ocr, reasons = self._assess_needs_ocr(result)
+            if needs_ocr:
+                result = self._attempt_ocr_and_reextract(
+                    extractor_class=extractor_class,
+                    original_pdf_path=pdf_path,
+                    doc_type=doc_type,
+                    file_name_for_mapping=pdf_path.name,
+                    initial_result=result,
+                )
+
+                self._normalize_contract_number(result, pdf_path)
+                needs_ocr, reasons = self._assess_needs_ocr(result)
+
             result.setdefault("metadata", {}).update({
                 "needs_ocr": needs_ocr,
                 "needs_ocr_reasons": reasons,
@@ -182,10 +193,22 @@ class Pipeline:
                     reasons=reasons,
                 )
 
+            partial_reasons = self._assess_partial_reasons(result)
+            if partial_reasons:
+                result.setdefault("metadata", {})["partial_reasons"] = partial_reasons
+                if result.get("status") == "success":
+                    result["status"] = "partial"
+                    logger.warning(
+                        "Partial extraction detected",
+                        file=pdf_path.name,
+                        reasons=partial_reasons,
+                    )
+
             file_mtime_iso = datetime.fromtimestamp(
                 fingerprint["file_mtime"], tz=timezone.utc
             ).isoformat()
             result.setdefault("metadata", {}).update({
+                "run_id": self.run_id,
                 "file_hash": fingerprint.get("file_hash"),
                 "file_size_bytes": fingerprint.get("file_size_bytes"),
                 "file_mtime": file_mtime_iso,
@@ -259,6 +282,102 @@ class Pipeline:
                 reasons.append("low_field_coverage")
 
         return (len(reasons) > 0, reasons)
+
+    def _assess_partial_reasons(self, result: Dict) -> List[str]:
+        """Determine reasons to mark a result as partial."""
+        reasons: List[str] = []
+        data = result.get("data") if isinstance(result, dict) else None
+        if isinstance(data, dict):
+            if not data.get("contract_number"):
+                reasons.append("missing_contract_number")
+
+        return reasons
+
+    def _normalize_contract_number(self, result: Dict, pdf_path: Path) -> None:
+        """Populate missing contract number from filename when possible."""
+        if not isinstance(result, dict):
+            return
+        data = result.get("data")
+        if not isinstance(data, dict):
+            return
+
+        if data.get("contract_number"):
+            return
+
+        inferred = self._infer_contract_number_from_filename(pdf_path.name)
+        if inferred:
+            data["contract_number"] = inferred
+            result.setdefault("metadata", {})["contract_number_source"] = "filename"
+
+    def _infer_contract_number_from_filename(self, filename: str) -> Optional[str]:
+        """Infer contract number from filename."""
+        import re
+
+        patterns = [
+            r"(DA\d{5})",
+            r"\b(\d{8})\b",
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, filename, re.IGNORECASE)
+            if match:
+                return match.group(1).upper()
+        return None
+
+    def _run_extraction(
+        self,
+        extractor_class,
+        pdf_path: Path,
+        doc_type: DocumentType,
+        file_name_for_mapping: str,
+        result_file_path: Path,
+    ) -> Dict:
+        """Run extraction and apply mapping for a PDF path."""
+        extractor = extractor_class(pdf_path)
+        result = extractor.run_extraction()
+
+        if result.get("status") == "success" and result.get("data"):
+            mapping = self.mapping_resolver.resolve(doc_type.value, file_name_for_mapping)
+            mapped_data, mapping_meta = apply_mapping(result["data"], mapping)
+            result["data"] = mapped_data
+            result.setdefault("metadata", {})["mapping"] = mapping_meta
+
+        result["document_type"] = doc_type.value
+        result["file_path"] = str(result_file_path)
+        return result
+
+    def _attempt_ocr_and_reextract(
+        self,
+        extractor_class,
+        original_pdf_path: Path,
+        doc_type: DocumentType,
+        file_name_for_mapping: str,
+        initial_result: Dict,
+    ) -> Dict:
+        """Run OCR when needed and re-run extraction using OCR output."""
+        ocr_path, ocr_meta = self.ocr_processor.run(original_pdf_path)
+        result = initial_result
+        result.setdefault("metadata", {}).update(ocr_meta)
+
+        if not ocr_path:
+            return result
+
+        try:
+            result = self._run_extraction(
+                extractor_class=extractor_class,
+                pdf_path=ocr_path,
+                doc_type=doc_type,
+                file_name_for_mapping=file_name_for_mapping,
+                result_file_path=original_pdf_path,
+            )
+            result.setdefault("metadata", {}).update(ocr_meta)
+            result.setdefault("metadata", {})["ocr_source_file"] = str(ocr_path)
+            return result
+        finally:
+            try:
+                ocr_path.unlink(missing_ok=True)
+            except Exception:
+                pass
     
     def process_directory(self, pattern: str = "**/*.pdf") -> List[Dict]:
         """Process all PDFs in directory.
@@ -279,7 +398,9 @@ class Pipeline:
             fingerprint = self._compute_file_fingerprint(pdf_path)
 
             if self.incremental and self._is_unchanged(pdf_path, fingerprint):
-                results.append(self._build_skip_result(pdf_path, fingerprint))
+                skip_result = self._build_skip_result(pdf_path, fingerprint)
+                skip_result.setdefault("metadata", {})["run_id"] = self.run_id
+                results.append(skip_result)
                 continue
 
             result = self.process_file(pdf_path, fingerprint)

@@ -45,6 +45,9 @@ class Contract(Base):
     awarded_to = Column(String(255))
     award_date = Column(DateTime)
     source_file_path = Column(Text)
+    source_file_hash = Column(String(64))
+    source_file_mtime = Column(DateTime)
+    extraction_run_id = Column(String(64))
     extraction_date = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -110,9 +113,13 @@ class ExtractionLog(Base):
     records_extracted = Column(Integer)
     needs_ocr = Column(Boolean, default=False)
     needs_ocr_reasons = Column(Text)
+    ocr_applied = Column(Boolean, default=False)
+    ocr_method = Column(String(50))
+    ocr_duration_seconds = Column(Numeric(8, 3))
     file_hash = Column(String(64))
     file_size_bytes = Column(Integer)
     file_mtime = Column(DateTime)
+    run_id = Column(String(64))
     extraction_timestamp = Column(DateTime, default=datetime.utcnow)
 
 

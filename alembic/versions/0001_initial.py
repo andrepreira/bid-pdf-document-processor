@@ -38,6 +38,9 @@ def upgrade() -> None:
             awarded_to VARCHAR(255),
             award_date DATE,
             source_file_path TEXT,
+            source_file_hash VARCHAR(64),
+            source_file_mtime TIMESTAMP,
+            extraction_run_id VARCHAR(64),
             extraction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -93,9 +96,13 @@ def upgrade() -> None:
             records_extracted INTEGER,
             needs_ocr BOOLEAN DEFAULT FALSE,
             needs_ocr_reasons TEXT,
+            ocr_applied BOOLEAN DEFAULT FALSE,
+            ocr_method VARCHAR(50),
+            ocr_duration_seconds DECIMAL(8,3),
             file_hash VARCHAR(64),
             file_size_bytes INTEGER,
             file_mtime TIMESTAMP,
+            run_id VARCHAR(64),
             extraction_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
@@ -108,6 +115,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX IF NOT EXISTS idx_extraction_logs_file ON extraction_logs(file_path);")
     op.execute("CREATE INDEX IF NOT EXISTS idx_extraction_logs_hash ON extraction_logs(file_hash);")
     op.execute("CREATE INDEX IF NOT EXISTS idx_extraction_logs_status ON extraction_logs(status);")
+    op.execute("CREATE INDEX IF NOT EXISTS idx_extraction_logs_run ON extraction_logs(run_id);")
 
     op.execute(
         """
@@ -130,8 +138,15 @@ def upgrade() -> None:
         """
     )
 
+    op.execute("ALTER TABLE contracts ADD COLUMN IF NOT EXISTS source_file_hash VARCHAR(64);")
+    op.execute("ALTER TABLE contracts ADD COLUMN IF NOT EXISTS source_file_mtime TIMESTAMP;")
+    op.execute("ALTER TABLE contracts ADD COLUMN IF NOT EXISTS extraction_run_id VARCHAR(64);")
     op.execute("ALTER TABLE extraction_logs ADD COLUMN IF NOT EXISTS needs_ocr BOOLEAN DEFAULT FALSE;")
     op.execute("ALTER TABLE extraction_logs ADD COLUMN IF NOT EXISTS needs_ocr_reasons TEXT;")
+    op.execute("ALTER TABLE extraction_logs ADD COLUMN IF NOT EXISTS ocr_applied BOOLEAN DEFAULT FALSE;")
+    op.execute("ALTER TABLE extraction_logs ADD COLUMN IF NOT EXISTS ocr_method VARCHAR(50);")
+    op.execute("ALTER TABLE extraction_logs ADD COLUMN IF NOT EXISTS ocr_duration_seconds DECIMAL(8,3);")
+    op.execute("ALTER TABLE extraction_logs ADD COLUMN IF NOT EXISTS run_id VARCHAR(64);")
 
 
 def downgrade() -> None:

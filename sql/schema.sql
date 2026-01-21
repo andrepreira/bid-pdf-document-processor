@@ -28,6 +28,9 @@ CREATE TABLE contracts (
     awarded_to VARCHAR(255),
     award_date DATE,
     source_file_path TEXT,
+    source_file_hash VARCHAR(64),
+    source_file_mtime TIMESTAMP,
+    extraction_run_id VARCHAR(64),
     extraction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -74,9 +77,13 @@ CREATE TABLE extraction_logs (
     records_extracted INTEGER,
     needs_ocr BOOLEAN DEFAULT FALSE,
     needs_ocr_reasons TEXT,
+    ocr_applied BOOLEAN DEFAULT FALSE,
+    ocr_method VARCHAR(50),
+    ocr_duration_seconds DECIMAL(8,3),
     file_hash VARCHAR(64),
     file_size_bytes INTEGER,
     file_mtime TIMESTAMP,
+    run_id VARCHAR(64),
     extraction_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -88,6 +95,7 @@ CREATE INDEX idx_bid_items_contract ON bid_items(contract_id);
 CREATE INDEX idx_extraction_logs_file ON extraction_logs(file_path);
 CREATE INDEX idx_extraction_logs_hash ON extraction_logs(file_hash);
 CREATE INDEX idx_extraction_logs_status ON extraction_logs(status);
+CREATE INDEX idx_extraction_logs_run ON extraction_logs(run_id);
 
 -- Updated_at trigger
 CREATE OR REPLACE FUNCTION update_updated_at_column()
